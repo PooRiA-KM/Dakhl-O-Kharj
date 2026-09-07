@@ -6,7 +6,9 @@ from app.api.v1 import (
     accounts,
     auth,
     categories,
+    dashboard,
     health,
+    reports,
     transactions,
     users,
 )
@@ -16,12 +18,11 @@ from app.database import Base, engine
 settings = get_settings()
 
 # برای شروع سریع پروژه، جدول‌ها به صورت خودکار ساخته می‌شوند.
-# بعداً بهتر است به جای این کار از Alembic و migration استفاده کنیم.
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.2.0",
+    version="0.3.0",
     description="API پروژه مدیریت دخل و خرج - Dakhl-O-Kharj",
 )
 
@@ -66,6 +67,18 @@ app.include_router(
 )
 
 app.include_router(
+    dashboard.router,
+    prefix=f"{api_prefix}/dashboard",
+    tags=["Dashboard"],
+)
+
+app.include_router(
+    reports.router,
+    prefix=f"{api_prefix}/reports",
+    tags=["Reports"],
+)
+
+app.include_router(
     health.router,
     prefix=api_prefix,
     tags=["Health"],
@@ -76,6 +89,7 @@ app.include_router(
 def root():
     return {
         "app": "Dakhl-O-Kharj API",
+        "version": "0.3.0",
         "docs": "/docs",
         "health": f"{api_prefix}/health",
     }
