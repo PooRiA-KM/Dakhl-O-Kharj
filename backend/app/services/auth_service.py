@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 from app.core.jwt import create_access_token
 from app.core.security import hash_password, verify_password
 from app.models.user import User
-from app.models.user_setting import UserSetting
 from app.schemas.auth import LoginRequest
 from app.schemas.user import UserCreate
+from app.services import default_data_service
 
 
 def register_user(db: Session, payload: UserCreate) -> User:
@@ -31,8 +31,10 @@ def register_user(db: Session, payload: UserCreate) -> User:
     db.add(user)
     db.flush()
 
-    setting = UserSetting(user_id=user.id)
-    db.add(setting)
+    default_data_service.create_default_user_data(
+        db=db,
+        user_id=user.id,
+    )
 
     db.commit()
     db.refresh(user)
