@@ -1,34 +1,42 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
-import { getSummary, getRecentTransactions, getMonthlyChart, getCategoryChart, Summary, RecentTransaction, MonthlyChart as MonthlyChartType, CategoryChart } from "@/services/dashboardService";
+import {
+  getSummary,
+  getRecentTransactions,
+  getMonthlyChart,
+  Summary,
+  RecentTransaction,
+  MonthlyChart as MonthlyChartType,
+} from "@/services/dashboardService";
 import SummaryCards from "@/components/dashboard/SummaryCards";
 import RecentTransactions from "@/components/dashboard/RecentTransactions";
 import MonthlyChart from "@/components/dashboard/MonthlyChart";
 
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth(true);
+  const { loading: authLoading } = useAuth(true);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[] | null>(null);
-  const [monthlyChart, setMonthlyChart] = useState<MonthlyChartType | null>(null);
-  const [categoryChart, setCategoryChart] = useState<CategoryChart | null>(null);
+  const [recentTransactions, setRecentTransactions] =
+    useState<RecentTransaction[] | null>(null);
+  const [monthlyChart, setMonthlyChart] =
+    useState<MonthlyChartType | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
-      const [summaryRes, recentRes, monthlyRes, categoryRes] = await Promise.all([
+      const [summaryRes, recentRes, monthlyRes] = await Promise.all([
         getSummary(),
         getRecentTransactions(5),
         getMonthlyChart(6),
-        getCategoryChart(),
       ]);
 
       if (summaryRes.data) setSummary(summaryRes.data);
       if (recentRes.data) setRecentTransactions(recentRes.data);
       if (monthlyRes.data) setMonthlyChart(monthlyRes.data);
-      if (categoryRes.data) setCategoryChart(categoryRes.data);
 
       setLoading(false);
     }
@@ -46,25 +54,21 @@ export default function DashboardPage() {
 
   return (
     <AuthGuard>
-      <main className="min-h-screen bg-gray-50">
-        <header className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-            <h1 className="text-xl font-bold text-primary-800">داشبورد</h1>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">{user?.full_name}</span>
-            </div>
-          </div>
-        </header>
-
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <SummaryCards summary={summary} />
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <MonthlyChart data={monthlyChart} />
-            <RecentTransactions transactions={recentTransactions} />
-          </div>
+      <DashboardLayout>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-xl font-bold text-primary-800">داشبورد</h1>
+          <Link href="/dashboard/transactions?new=1" className="btn-primary">
+            + ثبت تراکنش
+          </Link>
         </div>
-      </main>
+
+        <SummaryCards summary={summary} />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <MonthlyChart data={monthlyChart} />
+          <RecentTransactions transactions={recentTransactions} />
+        </div>
+      </DashboardLayout>
     </AuthGuard>
   );
 }
