@@ -3,19 +3,21 @@
 import { useEffect, useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import TransactionForm from "@/components/transactions/TransactionForm";
+import TransactionTable from "@/components/transactions/TransactionTable";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  getTransactions,
   Transaction,
+  deleteTransaction,
+  getTransactions,
 } from "@/services/transactionService";
-import TransactionTable from "@/components/transactions/TransactionTable";
-import TransactionForm from "@/components/transactions/TransactionForm";
 
 export default function TransactionsPage() {
   const { loading: authLoading } = useAuth(true);
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Transaction | null>(null);
 
   const fetchTransactions = async () => {
     setLoading(true);
@@ -37,13 +39,29 @@ export default function TransactionsPage() {
 
   const handleSuccess = () => {
     setShowForm(false);
+    setEditing(null);
+    fetchTransactions();
+  };
+
+  const handleDelete = async (transaction: Transaction) => {
+    const ok = window.confirm(`تراکنش «${transaction.title}» حذف شود؟`);
+
+    if (!ok) return;
+
+    const res = await deleteTransaction(transaction.id);
+
+    if (res.error) {
+      window.alert(res.error);
+      return;
+    }
+
     fetchTransactions();
   };
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600"></div>
       </div>
     );
   }
@@ -51,23 +69,40 @@ export default function TransactionsPage() {
   return (
     <AuthGuard>
       <DashboardLayout>
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <h1 className="text-xl font-bold text-primary-800">تراکنش‌ها</h1>
-          <button onClick={() => setShowForm(true)} className="btn-primary">
+          <button
+            onClick={() => {
+              setEditing(null);
+              setShowForm(true);
+            }}
+            className="btn-primary"
+          >
             + تراکنش جدید
           </button>
         </div>
 
-        {showForm && (
+        {(showForm || editing) && (
           <div className="mb-6">
             <TransactionForm
+              initial={editing}
               onSuccess={handleSuccess}
-              onCancel={() => setShowForm(false)}
+              onCancel={() => {
+                setShowForm(false);
+                setEditing(null);
+              }}
             />
           </div>
         )}
 
-        <TransactionTable transactions={transactions} />
+        <TransactionTable
+          transactions={transactions}
+          onEdit={(t) => {
+            setShowForm(false);
+            setEditing(t);
+          }}
+          onDelete={handleDelete}
+        />
       </DashboardLayout>
     </AuthGuard>
   );

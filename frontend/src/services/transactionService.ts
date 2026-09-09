@@ -1,80 +1,82 @@
 import { apiClient } from "./apiClient";
 
+export type TransactionType = "income" | "expense";
+
+export interface TransactionCategory {
+  id: number;
+  name: string;
+  type: string;
+  color: string | null;
+  icon: string | null;
+}
+
+export interface TransactionAccount {
+  id: number;
+  name: string;
+  type: string;
+}
+
 export interface Transaction {
   id: number;
+  user_id: number;
   title: string;
   amount: string;
-  type: "income" | "expense";
+  type: TransactionType;
   category_id: number | null;
   account_id: number | null;
   occurred_at: string;
+  occurred_at_persian?: string | null;
   description: string | null;
   created_at: string;
   updated_at: string;
-  category: {
-    id: number;
-    name: string;
-    type: string;
-    color: string | null;
-    icon: string | null;
-  } | null;
-  account: {
-    id: number;
-    name: string;
-    type: string;
-  } | null;
+  category: TransactionCategory | null;
+  account: TransactionAccount | null;
 }
 
-export interface TransactionCreate {
+export interface TransactionPayload {
   title: string;
   amount: number;
-  type: "income" | "expense";
+  type: TransactionType;
   category_id?: number | null;
   account_id?: number | null;
-  occurred_at?: string;
-  description?: string;
+  occurred_at?: string | null;
+  description?: string | null;
 }
 
-export async function getTransactions(params?: {
-  type?: string;
+export interface TransactionFilters {
+  type?: TransactionType;
   category_id?: number;
   account_id?: number;
   search?: string;
   skip?: number;
   limit?: number;
-}): Promise<{ data?: Transaction[]; error?: string }> {
-  const query = new URLSearchParams();
-
-  if (params?.type) query.append("type", params.type);
-  if (params?.category_id) query.append("category_id", String(params.category_id));
-  if (params?.account_id) query.append("account_id", String(params.account_id));
-  if (params?.search) query.append("search", params.search);
-  if (params?.skip !== undefined) query.append("skip", String(params.skip));
-  if (params?.limit !== undefined) query.append("limit", String(params.limit));
-
-  const response = await apiClient.get<Transaction[]>(`/transactions?${query.toString()}`);
-
-  if (response.error) return { error: response.error };
-  return { data: response.data };
 }
 
-export async function createTransaction(data: TransactionCreate): Promise<{ data?: Transaction; error?: string }> {
-  const response = await apiClient.post<Transaction>("/transactions", data);
+export async function getTransactions(filters: TransactionFilters = {}) {
+  const params = new URLSearchParams();
 
-  if (response.error) return { error: response.error };
-  return { data: response.data };
+  if (filters.type) params.set("type", filters.type);
+  if (filters.category_id) params.set("category_id", String(filters.category_id));
+  if (filters.account_id) params.set("account_id", String(filters.account_id));
+  if (filters.search) params.set("search", filters.search);
+
+  params.set("skip", String(filters.skip ?? 0));
+  params.set("limit", String(filters.limit ?? 100));
+
+  return apiClient.get<Transaction[]>(`/transactions?${params.toString()}`);
 }
 
-export async function updateTransaction(id: number, data: Partial<TransactionCreate>): Promise<{ data?: Transaction; error?: string }> {
-  const response = await apiClient.put<Transaction>(`/transactions/${id}`, data);
-
-  if (response.error) return { error: response.error };
-  return { data: response.data };
+export async function createTransaction(payload: TransactionPayload) {
+  return apiClient.post<Transaction>("/transactions", payload);
 }
 
-export async function deleteTransaction(id: number): Promise<{ error?: string }> {
-  const response = await apiClient.delete(`/transactions/${id}`);
+export async function updateTransaction(
+  id: number,
+  payload: Partial<TransactionPayload>
+) {
+  return apiClient.put<Transaction>(`/transactions/${id}`, payload);
+}
 
-  if (response.error) return { error: response.error };
-  return {};
+export async function deleteTransaction(id: number) {
+  return apiClient.delete<void>(`/transactions/${id}`);
 }

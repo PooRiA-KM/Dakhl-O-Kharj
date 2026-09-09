@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { login } from "@/services/authService";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { apiClient } from "@/services/apiClient";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,60 +17,75 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const { token, error } = await login({ email, password });
+    const res = await apiClient.post<{ access_token: string }>(
+      "/auth/login",
+      { email, password }
+    );
 
-    if (error) {
-      setError(error);
-      setLoading(false);
+    setLoading(false);
+
+    if (res.error || !res.data) {
+      setError(res.error || "ورود ناموفق بود.");
       return;
     }
 
-    if (token) {
-      router.push("/dashboard");
-    }
+    localStorage.setItem("access_token", res.data.access_token);
+    router.push("/dashboard");
+    router.refresh();
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-4">
-      <div className="card max-w-md w-full">
-        <h1 className="text-2xl font-bold text-primary-800 mb-6 text-center">
-          ورود به حساب کاربری
-        </h1>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-md">
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-extrabold text-primary-800">
+            دخل و خرج
+          </h1>
+          <p className="mt-2 text-sm text-gray-500">
+            مدیریت درآمد و هزینه‌های شخصی
+          </p>
+        </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
+        <form onSubmit={handleSubmit} className="card space-y-4">
+          <h2 className="text-lg font-bold text-primary-800">
+            ورود به حساب کاربری
+          </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="label" htmlFor="email">
               ایمیل
             </label>
             <input
+              id="email"
               type="email"
+              dir="ltr"
+              className="input text-left"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              placeholder="example@email.com"
               required
-              dir="ltr"
+              placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="label" htmlFor="password">
               رمز عبور
             </label>
             <input
+              id="password"
               type="password"
+              dir="ltr"
+              className="input text-left"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
-              placeholder="••••••••"
               required
-              dir="ltr"
+              placeholder="********"
             />
           </div>
 
@@ -81,15 +96,18 @@ export default function LoginPage() {
           >
             {loading ? "در حال ورود..." : "ورود"}
           </button>
-        </form>
 
-        <p className="mt-6 text-center text-sm text-gray-600">
-          حساب کاربری ندارید؟{" "}
-          <Link href="/register" className="text-primary-600 hover:underline">
-            ثبت‌نام کنید
-          </Link>
-        </p>
+          <p className="text-center text-sm text-gray-500">
+            حساب کاربری نداری؟{" "}
+            <Link
+              href="/register"
+              className="font-medium text-primary-600 hover:underline"
+            >
+              ثبت‌نام کن
+            </Link>
+          </p>
+        </form>
       </div>
-    </main>
+    </div>
   );
 }

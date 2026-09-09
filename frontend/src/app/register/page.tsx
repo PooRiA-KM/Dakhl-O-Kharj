@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { register, login } from "@/services/authService";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { apiClient } from "@/services/apiClient";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,113 +19,135 @@ export default function RegisterPage() {
     setError("");
 
     if (password !== confirmPassword) {
-      setError("رمز عبور و تکرار آن مطابقت ندارند");
+      setError("رمز عبور و تکرار آن یکسان نیست.");
       return;
     }
 
     if (password.length < 8) {
-      setError("رمز عبور باید حداقل ۸ کاراکتر باشد");
+      setError("رمز عبور باید حداقل ۸ کاراکتر باشد.");
       return;
     }
 
     setLoading(true);
 
-    const { user, error: registerError } = await register({
+    // 1. ثبت‌نام
+    const registerRes = await apiClient.post("/auth/register", {
       full_name: fullName,
       email,
       password,
     });
 
-    if (registerError) {
-      setError(registerError);
+    if (registerRes.error) {
+      setError(registerRes.error);
       setLoading(false);
       return;
     }
 
-    // Auto login after registration
-    const { token, error: loginError } = await login({ email, password });
+    // 2. ورود خودکار بعد از ثبت‌نام
+    const loginRes = await apiClient.post<{ access_token: string }>(
+      "/auth/login",
+      { email, password }
+    );
 
-    if (loginError) {
-      setError("ثبت‌نام موفق بود، اما در ورود خودکار خطایی رخ داد. لطفاً وارد شوید.");
-      router.push("/login");
+    setLoading(false);
+
+    if (loginRes.error || !loginRes.data) {
+      setError("ثبت‌نام موفق بود، ولی ورود خودکار ناموفق بود. لطفاً وارد شو.");
       return;
     }
 
-    if (token) {
-      router.push("/dashboard");
-    }
+    localStorage.setItem("access_token", loginRes.data.access_token);
+    router.push("/dashboard");
+    router.refresh();
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-4">
-      <div className="card max-w-md w-full">
-        <h1 className="text-2xl font-bold text-primary-800 mb-6 text-center">
-          ثبت‌نام
-        </h1>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <div className="w-full max-w-md">
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-extrabold text-primary-800">
+            دخل و خرج
+          </h1>
+          <p className="mt-2 text-sm text-gray-500">
+            همین حالا حساب خودت را بساز
+          </p>
+        </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
+        <form onSubmit={handleSubmit} className="card space-y-4">
+          <h2 className="text-lg font-bold text-primary-800">ثبت‌نام</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="label" htmlFor="full_name">
               نام و نام خانوادگی
             </label>
             <input
+              id="full_name"
               type="text"
+              className="input"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="input-field"
-              placeholder="علی رضایی"
               required
+              minLength={2}
+              maxLength={100}
+              placeholder="مثلاً: پوریا رضایی"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="label" htmlFor="email">
               ایمیل
             </label>
             <input
+              id="email"
               type="email"
+              dir="ltr"
+              className="input text-left"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              placeholder="example@email.com"
               required
-              dir="ltr"
+              placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="label" htmlFor="password">
               رمز عبور
             </label>
             <input
+              id="password"
               type="password"
+              dir="ltr"
+              className="input text-left"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="input-field"
-              placeholder="••••••••"
               required
-              dir="ltr"
+              minLength={8}
+              maxLength={72}
+              placeholder="حداقل ۸ کاراکتر"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="label" htmlFor="confirm_password">
               تکرار رمز عبور
             </label>
             <input
+              id="confirm_password"
               type="password"
+              dir="ltr"
+              className="input text-left"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="input-field"
-              placeholder="••••••••"
               required
-              dir="ltr"
+              minLength={8}
+              maxLength={72}
+              placeholder="********"
             />
           </div>
 
@@ -134,17 +156,20 @@ export default function RegisterPage() {
             disabled={loading}
             className="btn-primary w-full"
           >
-            {loading ? "در حال ثبت‌نام..." : "ثبت‌نام"}
+            {loading ? "در حال ثبت‌نام..." : "ساخت حساب"}
           </button>
-        </form>
 
-        <p className="mt-6 text-center text-sm text-gray-600">
-          حساب کاربری دارید؟{" "}
-          <Link href="/login" className="text-primary-600 hover:underline">
-            وارد شوید
-          </Link>
-        </p>
+          <p className="text-center text-sm text-gray-500">
+            قبلاً ثبت‌نام کردی؟{" "}
+            <Link
+              href="/login"
+              className="font-medium text-primary-600 hover:underline"
+            >
+              وارد شو
+            </Link>
+          </p>
+        </form>
       </div>
-    </main>
+    </div>
   );
 }
