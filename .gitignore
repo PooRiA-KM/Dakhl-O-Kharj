@@ -224,3 +224,6 @@ node_modules/
 db_data/
 /.idea
 test.py
+backups/
+*.sql.gz
+.env.local

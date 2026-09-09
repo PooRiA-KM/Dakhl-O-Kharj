@@ -1,4 +1,53 @@
-# Income Expense Manager 
- 
-Persian personal income/expense management web application. 
-Backend: FastAPI, Database: PostgreSQL, Frontend: Next.js, Deployment: Docker. 
+# دخل و خرج (Dakhl-O-Kharj)
+
+اپلیکیشن وب مدیریت درآمد و هزینه‌های شخصی — کاملاً فارسی، راست‌چین و با تقویم شمسی.
+
+## امکانات
+
+- ثبت‌نام و ورود با توکن JWT
+- هر کاربر فقط داده‌های خودش را می‌بیند
+- مدیریت تراکنش‌ها (درآمد / هزینه)
+- دسته‌بندی‌های رنگی پیش‌فرض و سفارشی
+- حساب‌های متعدد (نقدی، بانکی، کارت، کیف پول)
+- داشبورد با نمودار ماهانه و تراکنش‌های اخیر
+- گزارش ماهانه، گزارش دسته‌بندی و وضعیت حساب‌ها
+- تاریخ شمسی و اعداد فارسی
+
+## تکنولوژی‌ها
+
+| لایه     | تکنولوژی                              |
+| -------- | ------------------------------------- |
+| بک‌اند   | Python, FastAPI, SQLAlchemy           |
+| دیتابیس  | PostgreSQL                            |
+| فرانت‌اند| Next.js, TypeScript, Tailwind CSS     |
+| نمودارها | Recharts                              |
+| دیپلوی   | Docker, Docker Compose, Nginx         |
+
+## ساختار پروژه
+
+```text
+Dakhl-O-Kharj/
+├── backend/          # API با FastAPI
+│   ├── app/
+│   │   ├── api/      # روترها
+│   │   ├── core/     # امنیت و JWT
+│   │   ├── models/   # مدل‌های دیتابیس
+│   │   ├── schemas/  # اعتبارسنجی Pydantic
+│   │   ├── services/ # منطق کسب‌وکار
+│   │   └── utils/    # تاریخ شمسی و پول
+│   ├── tests/
+│   └── Dockerfile
+├── frontend/         # اپ Next.js
+│   ├── src/
+│   │   ├── app/      # صفحه‌ها
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── services/ # کلاینت API
+│   │   └── utils/
+│   ├── public/fonts/ # فونت وزیرمتن (هاست داخلی)
+│   ├── Dockerfile
+│   └── Dockerfile.prod
+├── nginx/            # تنظیمات پروکسی
+├── scripts/          # دیپلوی و بکاپ
+├── docker-compose.yml      # محیط توسعه
+└── docker-compose.prod.yml # محیط پروداکشن
