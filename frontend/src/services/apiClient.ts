@@ -12,10 +12,12 @@ class ApiClient {
       "Content-Type": "application/json",
     };
 
-    const token = localStorage.getItem("access_token");
-
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+    // فقط اگر در مرورگر بودیم به localStorage دسترسی داشته باشیم
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
     }
 
     return headers;

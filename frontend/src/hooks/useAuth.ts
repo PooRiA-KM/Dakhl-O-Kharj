@@ -1,46 +1,38 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentUser, isAuthenticated, logout, User } from "@/services/authService";
+import { apiClient } from "@/services/apiClient";
 
-export function useAuth(requireAuth: boolean = false) {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+export function useAuth(redirectToLogin = false) {
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    async function checkAuth() {
-      if (!isAuthenticated()) {
-        if (requireAuth) {
-          router.push("/login");
-        } else {
-          setLoading(false);
-        }
-        return;
-      }
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
 
-      const { user, error } = await getCurrentUser();
-
-      if (error || !user) {
-        logout();
-        if (requireAuth) {
-          router.push("/login");
-        }
-      } else {
-        setUser(user);
-      }
-
+    if (!token) {
       setLoading(false);
+      if (redirectToLogin) router.push("/login");
+      return;
     }
 
-    checkAuth();
-  }, [requireAuth, router]);
+    apiClient.get("/users/me").then((res) => {
+      if (res.data) {
+        setUser(res.data);
+      } else {
+        if (typeof window !== "undefined") localStorage.removeItem("access_token");
+        if (redirectToLogin) router.push("/login");
+      }
+      setLoading(false);
+    });
+  }, [redirectToLogin, router]);
 
-  const handleLogout = () => {
-    logout();
+  const logout = () => {
+    if (typeof window !== "undefined") localStorage.removeItem("access_token");
     router.push("/login");
   };
 
-  return { user, loading, isAuthenticated: isAuthenticated(), logout: handleLogout };
+  return { user, loading, logout };
 }
