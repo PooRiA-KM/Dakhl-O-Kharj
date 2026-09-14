@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import models  # noqa: F401
 from app.api.v1 import (
     accounts,
+    admin,
     auth,
     categories,
     dashboard,
@@ -14,11 +15,20 @@ from app.api.v1 import (
 )
 from app.config import get_settings
 from app.database import Base, engine
+from sqlalchemy import text
 
 settings = get_settings()
 
 # برای شروع سریع پروژه، جدول‌ها به صورت خودکار ساخته می‌شوند.
 Base.metadata.create_all(bind=engine)
+
+with engine.begin() as conn:
+    conn.execute(
+        text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin "
+            "BOOLEAN NOT NULL DEFAULT false"
+        )
+    )
 
 app = FastAPI(
     title=settings.app_name,
@@ -82,6 +92,12 @@ app.include_router(
     health.router,
     prefix=api_prefix,
     tags=["Health"],
+)
+
+app.include_router(
+    admin.router,
+    prefix=f"{api_prefix}/admin",
+    tags=["Admin"],
 )
 
 
