@@ -16,10 +16,9 @@ from app.schemas.report import (
     MonthlyReportResponse,
 )
 from app.utils.persian_date import (
-    current_month_start_end,
-    gregorian_month_range,
-    last_n_months,
-    to_persian,
+    current_jalali_month_range,
+    jalali_month_range,
+    last_n_jalali_months,
 )
 
 ZERO = Decimal("0")
@@ -70,14 +69,13 @@ def get_monthly_report(
     user_id: int,
     months: int = 12,
 ) -> MonthlyReportResponse:
-    month_list = last_n_months(months)
     items = []
     total_income = ZERO
     total_expense = ZERO
     total_transactions = 0
 
-    for m in month_list:
-        start, end = gregorian_month_range(m["year"], m["month"])
+    for m in last_n_jalali_months(months):
+        start, end = jalali_month_range(m["year"], m["month"])
         income, expense, count = _sum_by_type(
             db=db,
             user_id=user_id,
@@ -116,21 +114,19 @@ def get_category_report(
     db: Session,
     user_id: int,
 ) -> CategoryReportResponse:
-    start, end = current_month_start_end()
+    start, end = current_jalali_month_range()
 
-    # Get all categories of user
     categories = (
         db.query(Category)
         .filter(Category.user_id == user_id)
         .all()
     )
 
-    income_items = []
-    expense_items = []
+    income_items: list[CategoryReportItem] = []
+    expense_items: list[CategoryReportItem] = []
     total_income = ZERO
     total_expense = ZERO
 
-    # Process each category
     for cat in categories:
         income, expense, count = _sum_by_type(
             db=db,
@@ -140,7 +136,7 @@ def get_category_report(
             category_id=cat.id,
         )
 
-        if income > 0 or (cat.type in ("income", "both")):
+        if income > 0:
             income_items.append(
                 CategoryReportItem(
                     category_id=cat.id,
@@ -148,13 +144,13 @@ def get_category_report(
                     type=cat.type,
                     color=cat.color,
                     amount=income,
-                    count=count if cat.type != "expense" else 0,
-                    percentage=0.0,  # will be calculated later
+                    count=count,
+                    percentage=0.0,
                 )
             )
             total_income += income
 
-        if expense > 0 or (cat.type in ("expense", "both")):
+        if expense > 0:
             expense_items.append(
                 CategoryReportItem(
                     category_id=cat.id,
@@ -162,26 +158,22 @@ def get_category_report(
                     type=cat.type,
                     color=cat.color,
                     amount=expense,
-                    count=count if cat.type != "income" else 0,
+                    count=count,
                     percentage=0.0,
                 )
             )
             total_expense += expense
 
-    # Add uncategorized
-    income, expense, count = _sum_by_type(
+    # تراکنش‌های بدون دسته‌بندی
+    all_income, all_expense, _ = _sum_by_type(
         db=db,
         user_id=user_id,
         date_from=start,
         date_to=end,
     )
 
-    # Compute uncategorized by subtracting categorized totals
-    categorized_income = sum(i.amount for i in income_items)
-    categorized_expense = sum(i.amount for i in expense_items)
-
-    uncategorized_income = income - categorized_income
-    uncategorized_expense = expense - categorized_expense
+    uncategorized_income = all_income - total_income
+    uncategorized_expense = all_expense - total_expense
 
     if uncategorized_income > 0:
         income_items.append(
@@ -195,6 +187,7 @@ def get_category_report(
                 percentage=0.0,
             )
         )
+        total_income = all_income
 
     if uncategorized_expense > 0:
         expense_items.append(
@@ -208,8 +201,8 @@ def get_category_report(
                 percentage=0.0,
             )
         )
+        total_expense = all_expense
 
-    # Calculate percentages
     for item in income_items:
         item.percentage = (
             round(float(item.amount / total_income * 100), 2)
@@ -224,15 +217,11 @@ def get_category_report(
             else 0.0
         )
 
-    # Remove zero-amount items and sort
-    income_items = [i for i in income_items if i.amount > 0]
-    expense_items = [i for i in expense_items if i.amount > 0]
-
     income_items.sort(key=lambda x: x.amount, reverse=True)
     expense_items.sort(key=lambda x: x.amount, reverse=True)
 
     return CategoryReportResponse(
-        month_label=to_persian(start) or "",
+        month_label=last_n_jalali_months(1)[0]["label"],
         total_income=total_income,
         total_expense=total_expense,
         income_items=income_items,

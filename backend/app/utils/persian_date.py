@@ -1,29 +1,43 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
+from typing import Union
 
 import jdatetime
 
+TEHRAN_TZ = timezone(timedelta(hours=3, minutes=30))
+
+JALALI_MONTH_NAMES = [
+    "فروردین",
+    "اردیبهشت",
+    "خرداد",
+    "تیر",
+    "مرداد",
+    "شهریور",
+    "مهر",
+    "آبان",
+    "آذر",
+    "دی",
+    "بهمن",
+    "اسفند",
+]
+
 
 def now_tehran() -> datetime:
-    return datetime.now(timezone(timedelta(hours=3, minutes=30)))
+    return datetime.now(TEHRAN_TZ)
 
 
-def today_persian() -> jdatetime.date:
-    return jdatetime.date.today()
+def today_jalali() -> jdatetime.date:
+    return jdatetime.date.fromgregorian(date=now_tehran().date())
 
 
-def to_persian(dt: datetime | date | None) -> str | None:
+def to_persian(dt: Union[datetime, None]) -> str | None:
     if dt is None:
         return None
 
-    if isinstance(dt, datetime):
-        pd = jdatetime.datetime.fromgregorian(datetime=dt)
-    else:
-        pd = jdatetime.date.fromgregorian(date=dt)
-
+    pd = jdatetime.datetime.fromgregorian(datetime=dt)
     return pd.strftime("%Y/%m/%d")
 
 
-def to_persian_full(dt: datetime | None) -> str | None:
+def to_persian_full(dt: Union[datetime, None]) -> str | None:
     if dt is None:
         return None
 
@@ -31,44 +45,46 @@ def to_persian_full(dt: datetime | None) -> str | None:
     return pd.strftime("%Y/%m/%d %H:%M")
 
 
-def gregorian_month_range(year: int, month: int) -> tuple[datetime, datetime]:
-    """Start (inclusive) and end (exclusive) of a Gregorian month in UTC."""
-    start = datetime(year, month, 1, tzinfo=timezone.utc)
+def jalali_month_label(jyear: int, jmonth: int) -> str:
+    return f"{JALALI_MONTH_NAMES[jmonth - 1]} {jyear}"
 
-    if month == 12:
-        end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+
+def jalali_month_range(jyear: int, jmonth: int) -> tuple[datetime, datetime]:
+    """بازه میلادی معادل یک ماه شمسی، با مرز نیمه‌شب تهران."""
+    start_j = jdatetime.date(jyear, jmonth, 1)
+
+    if jmonth == 12:
+        end_j = jdatetime.date(jyear + 1, 1, 1)
     else:
-        end = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+        end_j = jdatetime.date(jyear, jmonth + 1, 1)
+
+    sg = start_j.togregorian()
+    eg = end_j.togregorian()
+
+    start = datetime(sg.year, sg.month, sg.day, tzinfo=TEHRAN_TZ)
+    end = datetime(eg.year, eg.month, eg.day, tzinfo=TEHRAN_TZ)
 
     return start, end
 
 
-def current_month_start_end() -> tuple[datetime, datetime]:
-    now = now_tehran()
-    start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
-
-    if now.month == 12:
-        end = datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
-    else:
-        end = datetime(now.year, now.month + 1, 1, tzinfo=timezone.utc)
-
-    return start, end
+def current_jalali_month_range() -> tuple[datetime, datetime]:
+    today = today_jalali()
+    return jalali_month_range(today.year, today.month)
 
 
-def last_n_months(n: int = 12) -> list[dict]:
-    """Returns last n months including current month, newest first."""
-    now = now_tehran()
-    result = []
+def last_n_jalali_months(n: int = 12) -> list[dict]:
+    """لیست n ماه شمسی اخیر، از جدید به قدیم."""
+    today = today_jalali()
+    year, month = today.year, today.month
 
-    year = now.year
-    month = now.month
+    result: list[dict] = []
 
     for _ in range(n):
         result.append(
             {
                 "year": year,
                 "month": month,
-                "label": f"{year}/{month:02d}",
+                "label": jalali_month_label(year, month),
             }
         )
 

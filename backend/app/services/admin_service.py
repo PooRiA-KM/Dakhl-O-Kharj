@@ -18,8 +18,9 @@ from app.schemas.admin import (
     RegistrationPoint,
 )
 from app.utils.persian_date import (
-    gregorian_month_range,
-    last_n_months,
+    current_jalali_month_range,
+    jalali_month_range,
+    last_n_jalali_months,
     now_tehran,
 )
 
@@ -134,7 +135,7 @@ def get_user(
 
 def get_stats(db: Session) -> AdminStatsResponse:
     now = now_tehran()
-    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    month_start = current_jalali_month_range()[0]
 
     total_users = db.query(func.count(User.id)).scalar() or 0
     active_users = (
@@ -179,13 +180,13 @@ def get_stats(db: Session) -> AdminStatsResponse:
     total_expense = Decimal(str(sums[1] or 0))
 
     registrations = []
-    for m in last_n_months(12):
-        start, end = gregorian_month_range(m["year"], m["month"])
+    for m in last_n_jalali_months(12):
+        start, end = jalali_month_range(m["year"], m["month"])
         count = (
-            db.query(func.count(User.id))
-            .filter(User.created_at >= start, User.created_at < end)
-            .scalar()
-            or 0
+                db.query(func.count(User.id))
+                .filter(User.created_at >= start, User.created_at < end)
+                .scalar()
+                or 0
         )
         registrations.append(
             RegistrationPoint(

@@ -1,11 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import and_, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.account import Account
-from app.models.category import Category
 from app.models.transaction import Transaction
 from app.schemas.dashboard import (
     CategoryChartItem,
@@ -17,10 +16,9 @@ from app.schemas.dashboard import (
     SummaryResponse,
 )
 from app.utils.persian_date import (
-    current_month_start_end,
-    gregorian_month_range,
-    last_n_months,
-    to_persian,
+    current_jalali_month_range,
+    jalali_month_range,
+    last_n_jalali_months,
     to_persian_full,
 )
 
@@ -59,7 +57,7 @@ def _sum_transactions(
 
 
 def get_summary(db: Session, user_id: int) -> SummaryResponse:
-    start, end = current_month_start_end()
+    start, end = current_jalali_month_range()
 
     month_income, month_expense = _sum_transactions(
         db=db,
@@ -73,14 +71,12 @@ def get_summary(db: Session, user_id: int) -> SummaryResponse:
         user_id=user_id,
     )
 
-    # Add initial balances of user accounts to total balance
     initial_sum = (
         db.query(func.sum(Account.initial_balance))
         .filter(Account.user_id == user_id)
         .scalar()
         or ZERO
     )
-
     initial_sum = Decimal(str(initial_sum))
 
     return SummaryResponse(
@@ -92,7 +88,7 @@ def get_summary(db: Session, user_id: int) -> SummaryResponse:
         total_balance=total_income - total_expense + initial_sum,
         current_month_start=start,
         current_month_end=end,
-        current_month_label=to_persian(start) or "",
+        current_month_label=last_n_jalali_months(1)[0]["label"],
     )
 
 
@@ -101,7 +97,7 @@ def get_recent_transactions(
     user_id: int,
     limit: int = 10,
 ) -> RecentTransactionsResponse:
-    query = (
+    transactions = (
         db.query(Transaction)
         .options(
             joinedload(Transaction.category),
@@ -110,9 +106,8 @@ def get_recent_transactions(
         .filter(Transaction.user_id == user_id)
         .order_by(Transaction.occurred_at.desc(), Transaction.id.desc())
         .limit(limit)
+        .all()
     )
-
-    transactions = query.all()
 
     total = (
         db.query(func.count(Transaction.id))
@@ -126,8 +121,14 @@ def get_recent_transactions(
         items.append(
             RecentTransactionRead.model_validate(
                 {
-                    **_transaction_to_dict(t),
+                    "id": t.id,
+                    "title": t.title,
+                    "amount": t.amount,
+                    "type": t.type,
+                    "occurred_at": t.occurred_at,
                     "occurred_at_persian": to_persian_full(t.occurred_at),
+                    "category": t.category,
+                    "account": t.account,
                 }
             )
         )
@@ -140,11 +141,10 @@ def get_monthly_chart(
     user_id: int,
     months: int = 12,
 ) -> MonthlyChartResponse:
-    month_list = last_n_months(months)
     points = []
 
-    for m in month_list:
-        start, end = gregorian_month_range(m["year"], m["month"])
+    for m in last_n_jalali_months(months):
+        start, end = jalali_month_range(m["year"], m["month"])
         income, expense = _sum_transactions(
             db=db,
             user_id=user_id,
@@ -171,9 +171,8 @@ def get_category_chart(
     db: Session,
     user_id: int,
 ) -> CategoryChartResponse:
-    start, end = current_month_start_end()
+    start, end = current_jalali_month_range()
 
-    # Get all expense transactions of current month
     transactions = (
         db.query(Transaction)
         .options(joinedload(Transaction.category))
@@ -186,7 +185,7 @@ def get_category_chart(
         .all()
     )
 
-    totals: dict[int | str, dict] = {}
+    totals: dict = {}
     total_expense = ZERO
 
     for t in transactions:
@@ -218,7 +217,7 @@ def get_category_chart(
         totals[key]["count"] += 1
 
     items = []
-    for key, data in totals.items():
+    for data in totals.values():
         percentage = (
             float(data["amount"] / total_expense * 100)
             if total_expense > 0
@@ -238,19 +237,7 @@ def get_category_chart(
     items.sort(key=lambda x: x.amount, reverse=True)
 
     return CategoryChartResponse(
-        month_label=to_persian(start) or "",
+        month_label=last_n_jalali_months(1)[0]["label"],
         total_expense=total_expense,
         items=items,
     )
-
-
-def _transaction_to_dict(t: Transaction) -> dict:
-    return {
-        "id": t.id,
-        "title": t.title,
-        "amount": t.amount,
-        "type": t.type,
-        "occurred_at": t.occurred_at,
-        "category": t.category,
-        "account": t.account,
-    }
